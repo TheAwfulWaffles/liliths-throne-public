@@ -14,33 +14,6 @@
 		<javafx.maven.plugin.version>0.0.6</javafx.maven.plugin.version>
 		<openjdk.nashorn.version>15.3</openjdk.nashorn.version>
 	</properties>
-	<dependencies>
-		<dependency>
-			<groupId>org.openjfx</groupId>
-			<artifactId>javafx-base</artifactId>
-			<version>13</version>
-		</dependency>
-		<dependency>
-			<groupId>org.openjfx</groupId>
-			<artifactId>javafx-fxml</artifactId>
-			<version>13</version>
-		</dependency>
-		<dependency>
-			<groupId>org.openjfx</groupId>
-			<artifactId>javafx-controls</artifactId>
-			<version>13</version>
-		</dependency>
-		<dependency>
-			<groupId>org.openjfx</groupId>
-			<artifactId>javafx-graphics</artifactId>
-			<version>13</version>
-		</dependency>
-		<dependency>
-			<groupId>org.openjfx</groupId>
-			<artifactId>javafx-web</artifactId>
-			<version>13</version>
-		</dependency>
-        </dependencies>
 	<build>
 		<sourceDirectory>src</sourceDirectory>
 		<resources>
@@ -73,17 +46,6 @@
 					<source>${maven.compiler.release}</source>
 					<target>${maven.compiler.release}</target>
 					<useIncrementalCompilation>false</useIncrementalCompilation>
-					<!-- <compilerArgs>
-						<arg>-Xlint:all</arg>
-					</compilerArgs> -->
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.openjfx</groupId>
-				<artifactId>javafx-maven-plugin</artifactId>
-				<version>0.0.3</version>
-				<configuration>
-					<mainClass>com.lilithstrone.main.Main</mainClass>
 				</configuration>
 			</plugin>
 			<plugin>
