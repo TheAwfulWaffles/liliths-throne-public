@@ -65,7 +65,7 @@ import javax.xml.transform.TransformerFactory;
 
 /**
  * @since 0.1.0
- * @version 0.4.8.2
+ * @version 0.4.5.5
  * @author Innoxia
  */
 public class Main extends Application {
@@ -86,7 +86,7 @@ public class Main extends Application {
 	
 	public static final String AUTHOR = "Innoxia";
 	public static final String GAME_NAME = "Lilith's Throne";
-	public static final String VERSION_NUMBER = "0.4.8.3"; // Remember to update pom.xml!
+	public static final String VERSION_NUMBER = "0.4.6";
 	public static final String VERSION_DESCRIPTION = "Alpha";
 
 	public static boolean quickSaved = false;
@@ -98,7 +98,7 @@ public class Main extends Application {
 	 */
 	public final static boolean DEBUG = Boolean.valueOf(System.getProperty("debug", "false"));
 
-	public static Image WINDOW_IMAGE;
+	public static final String WINDOW_IMAGE_PATH = "/com/lilithsthrone/res/images/windowIcon32.png";
 	
 	private static Properties properties;
 	
@@ -180,8 +180,6 @@ public class Main extends Application {
 		credits.add(new CreditsSlot("LemonMuffin", "", 0, 0, 0, 0, Subspecies.DEMON));
 		credits.add(new CreditsSlot("AuRah", "", 0, 0, 0, 0, Subspecies.DEMON));
 		credits.add(new CreditsSlot("shotgunlo", "", 0, 0, 0, 0, Subspecies.DEMON));
-		credits.add(new CreditsSlot("Polyfield", "", 0, 0, 0, 0, Subspecies.DEMON));
-		credits.add(new CreditsSlot("Homero L", "", 0, 0, 0, 0, Subspecies.DEMON));
 		
 		
 		credits.add(new CreditsSlot("Adhana Konker", "", 0, 0, 3, 0));
@@ -463,9 +461,7 @@ public class Main extends Application {
 			}
 		});
 
-		WINDOW_IMAGE = new Image("/com/lilithsthrone/res/images/windowIcon32.png");
-
-		Main.primaryStage.getIcons().add(WINDOW_IMAGE);
+		Main.primaryStage.getIcons().add(new Image(WINDOW_IMAGE_PATH));
 
 		Main.primaryStage.setTitle(GAME_NAME+" " + VERSION_NUMBER + " " + VERSION_DESCRIPTION+(DEBUG?" (Debug Mode)":""));
 
@@ -645,8 +641,7 @@ public class Main extends Application {
 		return patchNotes;
 	}
 
-	public static void main(String[] args) {
-		
+	public static void init_env() {
 		// Create folders:
 		File dir = new File("data/");
 		dir.mkdir();
@@ -654,35 +649,18 @@ public class Main extends Application {
 		dir.mkdir();
 		dir = new File("data/characters");
 		dir.mkdir();
-		
-		
+
 		// Open error log
 		if(!DEBUG) {
 			System.out.println("Printing to error.log");
 			try {
+				@SuppressWarnings("resource")
 				PrintStream stream = new PrintStream("data/error.log");
 				System.setErr(stream);
 				System.err.println("Game Version: "+VERSION_NUMBER);
-				System.err.println("Java: "+System.getProperty("java.version")+" ("+System.getProperty("java.vendor")+")");
-				System.err.println("OS: "+System.getProperty("os.name")+" ("+System.getProperty("os.arch")+")");
-				if (new File("res/mods").exists()) {
-					System.err.print("Mod folders present: ");
-					int i=0;
-					for(File f : new File("res/mods").listFiles()) {
-						if(f.isDirectory()) {
-							if(i>0) {
-								System.err.print(", ");
-							}
-							System.err.print(f.getName());
-						}
-						i++;
-					}
-					System.err.println();
-				}
-				
-				
+				System.err.println("Java: "+System.getProperty("java.version"));
 //				System.err.println("OS: "+System.getProperty("os.name"));
-				
+
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
 			}
@@ -699,7 +677,10 @@ public class Main extends Application {
 			properties = new Properties();
 			properties.savePropertiesAsXML();
 		}
+	}
 
+	public static void main(String[] args) {
+		init_env();
 		launch(args);
 	}
 	
@@ -711,12 +692,11 @@ public class Main extends Application {
 		Main.game = new Game();
 		
 		// Generate world:
-		if (!(gen == null)) {
+		if (!(gen == null))
 			if (gen.isRunning()) {
 				gen.cancel();
 			}
-		}
-		
+
 		gen = new Generation();
 
 		gen.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
@@ -810,7 +790,7 @@ public class Main extends Application {
 			return "You cannot save the game during the character creation process or prologue!";
 			
 		} else if (Main.game.isInCombat()) {
-			return "You cannot save the game while in combat!";
+			return "You cannot save the game while while in combat!";
 			
 		} else if (Main.game.isInSex()) {
 			return "You cannot save the game while in a sex scene!";
@@ -835,7 +815,7 @@ public class Main extends Application {
 	public static void quickSaveGame() {
 		if(isQuickSaveAvailable()){
 			Main.getProperties().lastQuickSaveName = getQuickSaveName();
-			saveGame(getQuickSaveName(), true, false);
+			saveGame(getQuickSaveName(), true);
 			quickSaved = true;
 		} else {
 			Main.game.flashMessage(PresetColour.GENERIC_BAD, getQuickSaveUnavailabilityDescription());
@@ -845,9 +825,8 @@ public class Main extends Application {
 	public static void quickLoadGame() {
 		if(quickSaved) {
 			loadGame(Main.properties.lastQuickSaveName);
-		} else {
-			loadGame(getQuickSaveName());
 		}
+		loadGame(getQuickSaveName());
 	}
 
 	public static boolean isSaveGameAvailable() {
@@ -856,13 +835,13 @@ public class Main extends Application {
 						|| Main.game.getSavedDialogueNode().equals(Main.game.getDefaultDialogue(false)));
 	}
 	
-	public static void saveGame(String name, boolean allowOverwrite, boolean isAutoSave) {
+	public static void saveGame(String name, boolean allowOverwrite) {
 		name = Main.checkFileName(name);
 		if(name.isEmpty()) {
 			return;
 		}
 		
-		Game.exportGame(name, allowOverwrite, isAutoSave);
+		Game.exportGame(name, allowOverwrite);
 
 		try {
 			properties.lastSaveLocation = name;//"data/saves/"+name+".lts";
@@ -1049,8 +1028,7 @@ public class Main extends Application {
 						CharacterImportSetting.CLEAR_KEY_ITEMS,
 						CharacterImportSetting.CLEAR_COMBAT_HISTORY,
 						CharacterImportSetting.CLEAR_SEX_HISTORY,
-						CharacterImportSetting.REMOVE_RACE_CONCEALED,
-						CharacterImportSetting.CLEAR_FAMILY_ID));
+						CharacterImportSetting.REMOVE_RACE_CONCEALED));
 				
 				Main.game.getPlayer().getSlavesOwned().clear();
 				Main.game.getPlayer().endPregnancy(false);
