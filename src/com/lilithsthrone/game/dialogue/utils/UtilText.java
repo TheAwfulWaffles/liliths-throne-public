@@ -35,6 +35,7 @@ import com.lilithsthrone.game.character.GameCharacter;
 import com.lilithsthrone.game.character.attributes.AbstractAttribute;
 import com.lilithsthrone.game.character.attributes.AffectionLevel;
 import com.lilithsthrone.game.character.attributes.AffectionLevelBasic;
+import com.lilithsthrone.game.character.attributes.AlcoholLevel;
 import com.lilithsthrone.game.character.attributes.Attribute;
 import com.lilithsthrone.game.character.attributes.CorruptionLevel;
 import com.lilithsthrone.game.character.attributes.ObedienceLevel;
@@ -105,6 +106,7 @@ import com.lilithsthrone.game.character.body.valueEnums.Capacity;
 import com.lilithsthrone.game.character.body.valueEnums.CoveringModifier;
 import com.lilithsthrone.game.character.body.valueEnums.CoveringPattern;
 import com.lilithsthrone.game.character.body.valueEnums.CumProduction;
+import com.lilithsthrone.game.character.body.valueEnums.EyeShape;
 import com.lilithsthrone.game.character.body.valueEnums.Femininity;
 import com.lilithsthrone.game.character.body.valueEnums.FluidFlavour;
 import com.lilithsthrone.game.character.body.valueEnums.FluidModifier;
@@ -154,12 +156,14 @@ import com.lilithsthrone.game.character.persona.OccupationTag;
 import com.lilithsthrone.game.character.persona.PersonalityTrait;
 import com.lilithsthrone.game.character.persona.Relationship;
 import com.lilithsthrone.game.character.persona.SexualOrientation;
+import com.lilithsthrone.game.character.pregnancy.FertilisationType;
 import com.lilithsthrone.game.character.quests.Quest;
 import com.lilithsthrone.game.character.quests.QuestLine;
 import com.lilithsthrone.game.character.race.AbstractRace;
 import com.lilithsthrone.game.character.race.AbstractRacialBody;
 import com.lilithsthrone.game.character.race.AbstractSubspecies;
 import com.lilithsthrone.game.character.race.FurryPreference;
+import com.lilithsthrone.game.character.race.Nocturnality;
 import com.lilithsthrone.game.character.race.Race;
 import com.lilithsthrone.game.character.race.RaceStage;
 import com.lilithsthrone.game.character.race.RacialBody;
@@ -221,8 +225,11 @@ import com.lilithsthrone.world.places.AbstractPlaceUpgrade;
 import com.lilithsthrone.world.places.PlaceType;
 import com.lilithsthrone.world.places.PlaceUpgrade;
 
-import org.openjdk.nashorn.api.scripting.NashornScriptEngine;
-import org.openjdk.nashorn.api.scripting.NashornScriptEngineFactory;
+import jdk.nashorn.api.scripting.NashornScriptEngine;
+import jdk.nashorn.api.scripting.NashornScriptEngineFactory;
+// Use the following imports when using the org.openjdk.nashorn dependency:
+//import org.openjdk.nashorn.api.scripting.NashornScriptEngine;
+//import org.openjdk.nashorn.api.scripting.NashornScriptEngineFactory;
 
 /**
  * @since 0.1.0
@@ -241,7 +248,7 @@ public class UtilText {
 	private static Body body;
 	private static AbstractRace race;
 	private static CharacterInventory inventory;
-	
+
 //	private static List<GameCharacter> specialNPCList = new ArrayList<>();
 	private static boolean parseCapitalise;
 	private static boolean parseAddPronoun;
@@ -788,12 +795,6 @@ public class UtilText {
 			return "a";
 		}
 	}
-	
-	private static String[] femaleCumNames = new String[] { "juices" };
-
-	public static String getFemaleCumName() {
-		return femaleCumNames[Util.random.nextInt(femaleCumNames.length)];
-	}
 
 	/**
 	 * @return Returns one of the supplied Strings, randomly chosen by using Random's nextInt() method. <b>Automatically removes empty Strings and null entries.</b>
@@ -1034,6 +1035,12 @@ public class UtilText {
 			for (int i = 0; i < input.length(); i++) {
 				char c = input.charAt(i);
 				
+				// Advance the parser index to the final `>` if we encounter an SVG
+				if(c == 'g' && substringMatchesInReverseAtIndex(input, "<svg", i)) {
+					i = input.indexOf("</svg>", i) + 5; // 5 == "</svg>".length() - 1
+					continue;
+				}
+
 				if(usingConditionalBrackets) {
 					if(input.charAt(i)=='(') {
 						conditionalOpenBrackets++;
@@ -1324,14 +1331,30 @@ public class UtilText {
 				}
 				errMsg.append(startIndex);
 				if(target != null) {
-					errMsg.append(" Target: "+target);
+					errMsg.append(" Target: '" + target + "'");
 				}
 				if(command != null) {
-					errMsg.append(" Command: "+command);
+					errMsg.append(" Command: '" + command + "'");
 				}
-				errMsg.append(" "+input.substring(startIndex, Math.min(input.length()-1, startIndex+20)));
+				{
+					int errContext = 30;
+					errMsg.append("\nContext:  " + input.substring(Math.max(0, startIndex - errContext), Math.min(input.length(), startIndex + errContext)));
+					errMsg.append("\nLocation: ");// + "-".repeat(Math.min(errContext, startIndex)) + "^"); // .repeat was introduced in Java 11 and I use an older version
+					for(int i=0;i<Math.min(errContext, startIndex);i++) {
+						errMsg.append("-");
+					}
+					errMsg.append("^");
+				}
 				System.err.println(errMsg);
 				parsingCharactersForSpeech = parsingCharactersForSpeechSaved;
+				switch(input.charAt(startIndex)) {
+					// Replace the problematic character with its html entity, so that the error does
+					// not propagate further.
+					case '#':
+						return input.substring(0, startIndex) + "&#35;" + input.substring(startIndex+1);
+					case '[':
+						return input.substring(0, startIndex) + "&#91;" + input.substring(startIndex+1);
+				}
 				return input;
 			}
 			if (startedParsingSegmentAt < input.length()) {
@@ -1476,7 +1499,7 @@ public class UtilText {
 			public String parse(List<GameCharacter> specialNPCs, String command, String arguments, String target, GameCharacter character) {
 				List<String> strings = new ArrayList<>();
 				for(String s : arguments.split("\\|")) {
-					strings.add(UtilText.parse(s));
+					strings.add(UtilText.parse(s.trim()));
 				}
 				strings.removeIf(s->s.trim().isEmpty());
 				if(strings.isEmpty()) {
@@ -3227,11 +3250,12 @@ public class UtilText {
 			@Override
 			public String parse(List<GameCharacter> specialNPCs, String command, String arguments, String target, GameCharacter character) {
 				Femininity fem =  Femininity.valueOf(character.getFemininityValue());
+				boolean pronoun = parseAddPronoun;
+				parseAddPronoun = false;
 				if(arguments!=null && Boolean.valueOf(arguments)) {
-					return "<span style='color:"+fem.getColour().toWebHexString()+";'>"+fem.getName(false)+"</span>";
-							
+					return "<span style='color:"+fem.getColour().toWebHexString()+";'>"+fem.getName(pronoun)+"</span>";
 				}
-				return fem.getName(false);
+				return fem.getName(pronoun);
 			}
 		});
 		
@@ -9832,6 +9856,12 @@ public class UtilText {
 		for(Gender gender : Gender.values()) {
 			engine.put("GENDER_"+gender.toString(), gender);
 		}
+		for(FertilisationType ft : FertilisationType.values()) {
+			engine.put("FERTILISATION_"+ft.toString(), ft);
+		}
+		for(Nocturnality noc : Nocturnality.values()) {
+			engine.put("NOCTURNALITY_"+noc.toString(), noc);
+		}
 		for(LegConfiguration legConf : LegConfiguration.values()) {
 			engine.put("LEG_CONFIGURATION_"+legConf.toString(), legConf);
 		}
@@ -9877,7 +9907,10 @@ public class UtilText {
 		// Spelling errors which were corrected in PR#1603 but which now need correct parser references for old mod version support:
 		engine.put("BODY_PART_TAG_TAIL_SUTABLE_FOR_PENETRATION", BodyPartTag.TAIL_SUITABLE_FOR_PENETRATION);
 		engine.put("BODY_PART_TAG_TAIL_NEVER_SUTABLE_FOR_PENETRATION", BodyPartTag.TAIL_NEVER_SUITABLE_FOR_PENETRATION);
-		
+
+		for(PenetrationGirth girth : PenetrationGirth.values()) {
+			engine.put("PENETRATION_GIRTH_"+girth.toString(), girth);
+		}
 		for(PenetrationModifier penMod : PenetrationModifier.values()) {
 			engine.put("PENETRATION_MODIFIER_"+penMod.toString(), penMod);
 		}
@@ -9907,6 +9940,9 @@ public class UtilText {
 		}
 		for(OrificePlasticity plasticity : OrificePlasticity.values()) {
 			engine.put("PLASTICITY_"+plasticity.toString(), plasticity);
+		}
+		for(EyeShape eyeShape : EyeShape.values()) {
+			engine.put("EYE_SHAPE_"+eyeShape.toString(), eyeShape);
 		}
 		// Types:
 		for(AbstractFluidType fluidType : FluidType.getAllFluidTypes()) {
@@ -10014,6 +10050,9 @@ public class UtilText {
 		}
 		for(CorruptionLevel corruption : CorruptionLevel.values()) {
 			engine.put("CORRUPTION_LEVEL_"+corruption.toString(), corruption);
+		}
+		for(AlcoholLevel alcoholLevel : AlcoholLevel.values()) {
+			engine.put("ALCOHOL_LEVEL_"+alcoholLevel.toString(), alcoholLevel);
 		}
 		
 		
